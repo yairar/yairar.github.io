@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" >
+<meta name="keywords" content="Brewery, Library, Beer, Drinking, Breweries, Bars, Pint, Micro Brewery, Craft Beer" >
+<title>BeerApp</title>
+</head>
+
+<body ng-app="MainModule">
+<style>
+li a {
+	cursor: pointer;
+}
+</style>
+<div ng-controller="MainController as ctrl">
+	<h1>All Beer types</h1>
+	filter: <input type="text" ng-model="ctrl.typefilter" />
+	<br/>
+	<ul>
+		<li ng-repeat="i in ctrl.BEERS.data | filter:{'name':ctrl.typefilter}"><a title="{{i.description}}">{{i.name}}</a></li>
+	</ul>
+</div>
+
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.9/angular.min.js"></script>
+<script type="text/javascript" src="src/app.module.js"></script>
+<script type="text/javascript" src="src/controllers/main.controller.js"></script>
+<script type="text/javascript" src="src/services/beers.constant.js"></script>
+
+</body>
+</html>
