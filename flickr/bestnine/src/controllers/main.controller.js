@@ -7,7 +7,7 @@ angular.module('MainModule')
 
         var self = this;
 
-        self.username = 'Yair Aronshtam';
+        self.username = 'Stu Patterson';
         self.nsid = '';
 		self.userphotosurl = '';
 		self.usericonurl = '';
@@ -66,8 +66,9 @@ angular.module('MainModule')
         }
 
         self.getUserPhotos = function getUserPhotos() {
-            /* 2016 unixtime: from 1451606400 till 1483228800000 */
-        	userService.searchPhotosByDate(self.nsid, self.photosLimit, 1451606400, 1483228800000)
+            /* 2016 unixtime: from 1451606400 till 1483142400 */
+			/* 2018 unixtime: from 1514764800 till 1546214400 */
+        	userService.searchPhotosByDate(self.nsid, self.photosLimit, 1514764800, 1546214400)
         		.then(function(photos){
         			/* after getting user photos []<Photo> */
         			self.userPhotos = photos;
