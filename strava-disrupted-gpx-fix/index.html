@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Strava GPX files in Israel due to GPX disruption (with Map)</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <div id="title">Fix Strava GPX files in Israel due to GPX disruption</div>    
+
+    <div id="drop-zone">
+        <p>Drag and drop your disrupted GPX file here</p>
+    </div>
+    
+    <div id="result"></div>
+
+    <div id="result_link">
+        <a id="download" style="display: none;">Download Processed GPX file</a>
+    </div>
+    
+    <div id="map-container">
+        <div id="map-before" class="map"></div>
+        <div id="map-after" class="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        const dropZone = document.getElementById('drop-zone');
+        const resultDiv = document.getElementById('result');
+        const downloadLink = document.getElementById('download');
+        let mapBefore, mapAfter;
+        let filename;
+
+        // Initialize maps
+        function initMaps() {
+            mapBefore = L.map('map-before').setView([31.4, 35], 7);
+            mapAfter = L.map('map-after').setView([31.4, 35], 7);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(mapBefore);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(mapAfter);
+        }
+
+        initMaps();
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.toLowerCase().endsWith('.gpx')) {
+                // remember file name without extension
+                filename = file.name.substring(0, file.name.length-4);
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const gpxContent = event.target.result;
+                    processGPX(gpxContent);
+                };
+                reader.readAsText(file);
+            } else {
+                resultDiv.textContent = 'Please drop a valid GPX file.';
+            }
+        });
+
+        function processGPX(gpxContent) {
+            const parser = new DOMParser();
+            const gpxDoc = parser.parseFromString(gpxContent, 'text/xml');
+            
+            const israelBounds = {
+                minLat: 29.5,
+                maxLat: 33.3,
+                minLon: 34.2,
+                maxLon: 35.9
+            };
+
+            // Process and display original route
+            const originalPoints = extractPoints(gpxDoc);
+            displayRoute(mapBefore, originalPoints, 'blue');
+
+            // Process waypoints and track points
+            let removedPoints = 0;
+            let correctPoints = 0;
+            const processedPoints = originalPoints.filter(point => {
+                if (isInIsrael(point[0], point[1], israelBounds)) {
+                    correctPoints++;
+                    return true;
+                }
+                removedPoints++;
+                return false;
+            });
+
+            // Display processed route
+            displayRoute(mapAfter, processedPoints, 'red');
+
+            // Generate result message
+            resultDiv.textContent = `Processed GPX file with ${correctPoints+removedPoints} points. Removed ${removedPoints} points.`;
+
+            // Create download link for processed GPX
+            const processedGpxContent = generateGPX(processedPoints);
+            const blob = new Blob([processedGpxContent], {type: 'application/gpx+xml'});
+            const url = URL.createObjectURL(blob);
+            downloadLink.href = url;
+            downloadLink.download = filename + '_fixed.gpx';
+            downloadLink.style.display = 'block';
+            downloadLink.textContent = 'Download Processed GPX';
+        }
+
+        function extractPoints(gpxDoc) {
+            const points = [];
+            const trackpoints = gpxDoc.getElementsByTagName('trkpt');
+            for (let trkpt of trackpoints) {
+                const lat = parseFloat(trkpt.getAttribute('lat'));
+                const lon = parseFloat(trkpt.getAttribute('lon'));
+                points.push([lat, lon]);
+            }
+            return points;
+        }
+
+        function displayRoute(map, points, color) {
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Polyline) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            const polyline = L.polyline(points, {color: color}).addTo(map);
+            map.fitBounds(polyline.getBounds());
+        }
+
+        function isInIsrael(lat, lon, bounds) {
+            return lat >= bounds.minLat && lat <= bounds.maxLat && 
+                   lon >= bounds.minLon && lon <= bounds.maxLon;
+        }
+
+        function generateGPX(points) {
+            let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            gpx += '<gpx version="1.1" creator="GPX Processor">\n';
+            gpx += '  <trk>\n    <trkseg>\n';
+            points.forEach(point => {
+                gpx += `      <trkpt lat="${point[0]}" lon="${point[1]}"></trkpt>\n`;
+            });
+            gpx += '    </trkseg>\n  </trk>\n</gpx>';
+            return gpx;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+body {
+	padding: 0;
+	margin: 0;
+	background: #FFF;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 15pt;
+}
+
+#title {
+    width: 100%;
+    text-align: center;
+    padding-top: 20px;
+    font-size: 20pt;
+}
+#drop-zone {
+    width: 300px;
+    height: 120px;
+    border: 2px dashed #ccc;
+    border-radius: 20px;
+
+    text-align: center;
+    padding: 20px;
+    margin: 20px auto;
+}
+#drop-zone.dragover {
+    background-color: #e1e1e1;
+}
+#result, #result_link {
+    width: 400px;
+    text-align: center;
+    padding: 10px;
+    margin: 10px auto;
+}
+#map-container {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+}
+.map {
+    height: 400px;
+    width: 45%;
+}
