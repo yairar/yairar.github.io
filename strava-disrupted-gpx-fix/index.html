@@ -12,7 +12,8 @@
     <div id="title">Fix Strava GPX files in Israel due to GPS disruption</div>    
 
     <div id="drop-zone">
-        <p>Drag and drop your disrupted GPX file here</p>
+        <p>Drag and drop/Upload your disrupted GPX file here</p>
+        <input type="file" id="fileElem" accept=".gpx" onchange="handleFile(this.files[0])">
     </div>
     
     <div id="result"></div>
@@ -29,6 +30,7 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
         const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('fileElem');
         const resultDiv = document.getElementById('result');
         const downloadLink = document.getElementById('download');
         let mapBefore, mapAfter;
@@ -59,11 +61,17 @@
             dropZone.classList.remove('dragover');
         });
 
-        dropZone.addEventListener('drop', (e) => {
+        dropZone.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
             e.preventDefault();
             dropZone.classList.remove('dragover');
 
             const file = e.dataTransfer.files[0];
+            handleFile(file);
+        }
+
+        function handleFile(file) {
             if (file && file.name.toLowerCase().endsWith('.gpx')) {
                 // remember file name without extension
                 filename = file.name.substring(0, file.name.length-4);
@@ -74,9 +82,9 @@
                 };
                 reader.readAsText(file);
             } else {
-                resultDiv.textContent = 'Please drop a valid GPX file.';
+                resultDiv.textContent = 'Please drop/upload a valid GPX file.';
             }
-        });
+        }
 
         function processGPX(gpxContent) {
             const parser = new DOMParser();
