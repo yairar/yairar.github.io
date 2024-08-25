@@ -96,7 +96,9 @@
                 minLon: 34.2,
                 maxLon: 35.9,
                 northLat: 33.1,
-                northLon: 35.5
+                northLon: 35.5,
+                eastLat: 32.6,
+                eastLon: 35.5
             };
 
             // Process and display original route
@@ -156,6 +158,9 @@
         function isInIsrael(lat, lon, bounds) {
             // special check for the area north to Galil and west to Kiryat Shmona
             if (lat > bounds.northLat && lon < bounds.northLon) return false;
+
+            // special check for the area east to Dead Sea and south to Kineret (Jordan)
+            if (lon > bounds.eastLon && lat < bounds.eastLat) return false;
 
             return lat >= bounds.minLat && lat <= bounds.maxLat && 
                    lon >= bounds.minLon && lon <= bounds.maxLon;
