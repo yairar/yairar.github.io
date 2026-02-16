@@ -1,0 +1,203 @@
+/* Strava Activity Search Extension Styles */
+
+.strava-search-container {
+  margin: 20px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  position: sticky;
+  top: 60px;
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+.strava-search-container:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.strava-search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.strava-search-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.strava-nav-btn {
+  padding: 8px 10px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  color: #666;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  height: 42px;
+}
+
+.strava-nav-btn:hover:not(:disabled) {
+  background: #e0e0e0;
+  color: #333;
+  border-color: #fc4c02;
+}
+
+.strava-nav-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.strava-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.strava-search-input {
+  flex: 1;
+  max-width: 600px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  outline: none;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.strava-search-input:focus {
+  border-color: #fc4c02;
+  box-shadow: 0 0 0 3px rgba(252, 76, 2, 0.1);
+}
+
+.strava-search-input::placeholder {
+  color: #999;
+}
+
+.strava-clear-btn {
+  padding: 8px 12px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #666;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  height: 42px;
+}
+
+.strava-clear-btn:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.strava-clear-btn:active {
+  transform: scale(0.95);
+}
+
+.search-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.search-count {
+  color: #fc4c02;
+  font-weight: 600;
+  padding: 4px 12px;
+  background: #fff5f0;
+  border-radius: 12px;
+  border: 1px solid #ffe0d0;
+}
+
+.search-tip {
+  color: #666;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Hidden activity style */
+.strava-search-hidden {
+  display: none !important;
+}
+
+/* Matching activity highlight */
+.strava-search-match {
+  background: linear-gradient(90deg, rgba(252, 76, 2, 0.05) 0%, transparent 100%) !important;
+  border-left: 3px solid #fc4c02 !important;
+  padding-left: 12px !important;
+  margin-left: -15px !important;
+  transition: all 0.3s ease !important;
+}
+
+/* Pulse animation for first match */
+.strava-search-pulse {
+  animation: searchPulse 1s ease-in-out;
+}
+
+@keyframes searchPulse {
+  0%, 100% {
+    background: transparent;
+    box-shadow: none;
+  }
+  50% {
+    background: rgba(252, 76, 2, 0.1);
+    box-shadow: 0 0 20px rgba(252, 76, 2, 0.3);
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .strava-search-container {
+    margin: 10px 0;
+    padding: 12px;
+  }
+  
+  .strava-search-input {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+  
+  .strava-nav-btn, .strava-clear-btn {
+    min-width: 32px;
+    height: 38px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  
+  .search-tip {
+    display: none;
+  }
+  
+  .search-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* Animation for smooth appearance */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.strava-search-container {
+  animation: slideIn 0.3s ease-out;
+}
