@@ -12,6 +12,11 @@
   let searchCount = null;
   let currentMatchIndex = 0;
   let matchedElements = [];
+  let isLoadingYear = false;
+  let loadingCancelled = false;
+  let currentMonthIndex = 0;
+  let allMonthLinks = [];
+  let suppressObserver = false; // pauses MutationObserver during month loading
 
   function createSearchBox() {
     // Check if search box already exists
@@ -34,6 +39,18 @@
           <button id="strava-prev-match" class="strava-nav-btn" title="Previous match (Shift+Enter)" disabled>↑</button>
           <button id="strava-next-match" class="strava-nav-btn" title="Next match (Enter)" disabled>↓</button>
           <button id="strava-clear-search" class="strava-clear-btn" title="Clear search">✕</button>
+        </div>
+      </div>
+      <div class="strava-year-loader">
+        <button id="strava-load-year" class="strava-load-year-btn" title="Search through all months one by one">
+          🔍 Search all months
+        </button>
+        <div id="strava-loading-progress" class="strava-loading-progress" style="display: none;">
+          <div class="progress-text">Loading month <span id="progress-current">0</span>/...</div>
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <button id="strava-cancel-load" class="strava-cancel-btn">Cancel</button>
         </div>
       </div>
       <div class="search-info">
@@ -67,12 +84,16 @@
     const clearButton = document.getElementById('strava-clear-search');
     const prevButton = document.getElementById('strava-prev-match');
     const nextButton = document.getElementById('strava-next-match');
+    const loadYearButton = document.getElementById('strava-load-year');
+    const cancelLoadButton = document.getElementById('strava-cancel-load');
 
     // Add event listeners
     searchInput.addEventListener('input', performSearch);
     clearButton.addEventListener('click', clearSearch);
     prevButton.addEventListener('click', () => navigateMatches(-1));
     nextButton.addEventListener('click', () => navigateMatches(1));
+    loadYearButton.addEventListener('click', loadFullYear);
+    cancelLoadButton.addEventListener('click', cancelYearLoad);
     
     // Add keyboard navigation
     searchInput.addEventListener('keydown', (e) => {
@@ -291,6 +312,14 @@
       performSearch();
       searchInput.focus();
     }
+    // Reset "Continue search" button back to original state
+    const loadYearButton = document.getElementById('strava-load-year');
+    if (loadYearButton) {
+      loadYearButton.textContent = '🔍 Search all months';
+      loadYearButton.disabled = false;
+      currentMonthIndex = 0;
+      allMonthLinks = [];
+    }
   }
 
   function navigateMatches(direction) {
@@ -361,6 +390,240 @@
     }, 2000);
   }
 
+  async function loadFullYear() {
+    if (isLoadingYear) return;
+
+    isLoadingYear = true;
+    loadingCancelled = false;
+
+    const loadYearButton = document.getElementById('strava-load-year');
+    const progressContainer = document.getElementById('strava-loading-progress');
+
+    if (!loadYearButton || !progressContainer) {
+      console.error('[Strava Search] Load Year UI elements not found');
+      isLoadingYear = false;
+      return;
+    }
+
+    // On first run, collect all month links. On resume, reuse existing list.
+    if (currentMonthIndex === 0 || allMonthLinks.length === 0) {
+      allMonthLinks = Array.from(
+        document.querySelectorAll('#interval-graph-columns .interval.selectable a.bar')
+      );
+      currentMonthIndex = 0;
+    }
+
+    if (allMonthLinks.length === 0) {
+      progressContainer.style.display = 'flex';
+      progressContainer.innerHTML = '<div class="progress-error">❌ Month chart not found. Make sure you are viewing activities by Month.</div>';
+      setTimeout(() => resetLoadingUI(), 3000);
+      isLoadingYear = false;
+      return;
+    }
+
+    console.log(`[Strava Search] Found ${allMonthLinks.length} months. Starting from month ${currentMonthIndex + 1}.`);
+
+    loadYearButton.style.display = 'none';
+    progressContainer.style.display = 'flex';
+    suppressObserver = true; // stop MutationObserver from firing during load
+
+    try {
+      for (let i = currentMonthIndex; i < allMonthLinks.length; i++) {
+        if (loadingCancelled) {
+          console.log('[Strava Search] Loading cancelled');
+          break;
+        }
+
+        const link = allMonthLinks[i];
+        const monthId = link.closest('.interval')?.id || `month-${i + 1}`;
+        console.log(`[Strava Search] Clicking month ${i + 1}/${allMonthLinks.length}: ${monthId}`);
+
+        // Update progress bar
+        const progressText = progressContainer.querySelector('.progress-text');
+        const progressFill = progressContainer.querySelector('.progress-fill');
+        if (progressText) progressText.innerHTML = `Searching month <span class="progress-current">${i + 1}</span>/${allMonthLinks.length}...`;
+        if (progressFill) progressFill.style.width = `${((i + 1) / allMonthLinks.length) * 100}%`;
+
+        link.click();
+
+        // Wait for Strava to fully load and settle activities for this month
+        await sleep(5000);
+
+        // Check if search term matches anything in this month
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        if (searchTerm) {
+          const activities = getActivityEntries();
+          const hasMatch = activities.some(activity => {
+            const name = getActivityName(activity);
+            return name.toLowerCase().includes(searchTerm);
+          });
+
+          if (hasMatch) {
+            currentMonthIndex = i + 1;
+
+            // Hide progress, restore button
+            progressContainer.style.display = 'none';
+            loadYearButton.style.display = 'inline-block';
+            const remaining = allMonthLinks.length - currentMonthIndex;
+            if (remaining > 0) {
+              loadYearButton.textContent = `▶ Continue search (${remaining} months left)`;
+            } else {
+              loadYearButton.textContent = '✓ All months searched';
+              loadYearButton.disabled = true;
+              currentMonthIndex = 0;
+            }
+
+            // Run search & scroll BEFORE re-enabling the observer
+            // so DOM changes from performSearch don't trigger another navigation
+            performSearch();
+            await sleep(100);
+            suppressObserver = false;
+
+            console.log(`[Strava Search] Match found in month ${i + 1}. Pausing. ${remaining} months remaining.`);
+            isLoadingYear = false;
+            return;
+          }
+        }
+
+        currentMonthIndex = i + 1;
+      }
+
+      // Reached the end without finding (more) matches
+      if (!loadingCancelled) {
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        if (searchTerm) {
+          performSearch();
+        }
+        progressContainer.innerHTML = `<div class="progress-success">✓ All ${allMonthLinks.length} months searched!</div>`;
+        currentMonthIndex = 0;
+        allMonthLinks = [];
+        setTimeout(() => resetLoadingUI(), 2000);
+      } else {
+        resetLoadingUI();
+      }
+
+    } catch (error) {
+      console.error('[Strava Search] Error loading months:', error);
+      if (progressContainer) {
+        progressContainer.innerHTML = '<div class="progress-error">Error loading months</div>';
+      }
+      setTimeout(() => resetLoadingUI(), 2000);
+    } finally {
+      suppressObserver = false;
+      isLoadingYear = false;
+    }
+  }
+
+  function findNextMonthButton() {
+    console.log('[Strava Search] Looking for next month button...');
+    
+    // Try Strava-specific selectors first
+    const possibleSelectors = [
+      'button.next-month',
+      'a.next-month',
+      '.pagination .next',
+      '[data-action="next"]',
+      'button[aria-label*="next month" i]',
+      'a[aria-label*="next month" i]',
+      'a[href*="interval_type=month"]',
+      '.interval-nav button:last-of-type',
+      '.interval-nav a:last-of-type',
+      '.view-controls button:last-of-type',
+    ];
+    
+    for (const selector of possibleSelectors) {
+      try {
+        const el = document.querySelector(selector);
+        if (el && !el.disabled && !el.classList.contains('disabled') && el.offsetParent !== null) {
+          // Make sure it's not our own extension element
+          if (el.closest('.strava-search-container')) continue;
+          console.log(`[Strava Search] Found next button: ${selector}`);
+          return el;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    // Fallback: scan all buttons/links, skipping our own
+    const allElements = document.querySelectorAll('button, a, [role="button"]');
+    for (const el of allElements) {
+      // Skip hidden, disabled, or our own extension elements
+      if (el.offsetParent === null) continue;
+      if (el.disabled) continue;
+      if (el.closest('.strava-search-container')) continue;
+
+      const text     = el.textContent.trim();
+      const aria     = (el.getAttribute('aria-label') || '').toLowerCase();
+      const title    = (el.getAttribute('title') || '').toLowerCase();
+      const cls      = (el.className || '').toLowerCase();
+      const innerHTML = el.innerHTML.toLowerCase();
+
+      const isNext =
+        text === '›' || text === '>' || text === '→' ||
+        (aria.includes('next') && aria.includes('month')) ||
+        (title.includes('next') && title.includes('month')) ||
+        cls.includes('next-month') ||
+        innerHTML.includes('chevronright') ||
+        innerHTML.includes('chevron-right') ||
+        innerHTML.includes('arrowright');
+
+      if (isNext) {
+        console.log('[Strava Search] Found next button via scan:', {
+          text, aria, title, class: cls
+        });
+        return el;
+      }
+    }
+
+    console.log('[Strava Search] No next month button found');
+    return null;
+  }
+
+  function cancelYearLoad() {
+    loadingCancelled = true;
+    resetLoadingUI();
+  }
+
+  function resetLoadingUI() {
+    const loadYearButton = document.getElementById('strava-load-year');
+    const progressContainer = document.getElementById('strava-loading-progress');
+    
+    if (!loadYearButton || !progressContainer) {
+      console.log('[Strava Search] Reset UI: Elements not found, skipping reset');
+      return;
+    }
+    
+    // Restore original button state
+    loadYearButton.style.display = 'inline-block';
+    loadYearButton.textContent = '🔍 Search all months';
+    loadYearButton.disabled = false;
+    progressContainer.style.display = 'none';
+    
+    // Reset progress HTML to initial state
+    progressContainer.innerHTML = `
+      <div class="progress-text">Searching month <span class="progress-current">0</span>/...</div>
+      <div class="progress-bar">
+        <div id="progress-fill" class="progress-fill"></div>
+      </div>
+      <button id="strava-cancel-load" class="strava-cancel-btn">Cancel</button>
+    `;
+    
+    // Reset month tracking
+    currentMonthIndex = 0;
+    allMonthLinks = [];
+
+    // Re-attach cancel button listener
+    const cancelButton = document.getElementById('strava-cancel-load');
+    if (cancelButton) {
+      cancelButton.addEventListener('click', cancelYearLoad);
+    }
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   function observePageChanges() {
     // Watch for dynamically loaded content
     const observer = new MutationObserver((mutations) => {
@@ -369,7 +632,7 @@
         mutation.addedNodes.length > 0
       );
 
-      if (hasNewActivities && searchInput && searchInput.value) {
+      if (hasNewActivities && searchInput && searchInput.value && !suppressObserver) {
         // Reapply search filter
         performSearch();
       }

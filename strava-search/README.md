@@ -84,5 +84,4 @@ When you visit any athlete's profile page on Strava (including your own), this e
 
 This is a simple open-source tool. Use and modify as you wish!
 
-**Version**: 1.0.0  
 **Last Updated**: February 2026

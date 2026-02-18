@@ -103,6 +103,104 @@
   transform: scale(0.95);
 }
 
+.strava-year-loader {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.strava-load-year-btn {
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #fc4c02 0%, #ff6b35 100%);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(252, 76, 2, 0.2);
+}
+
+.strava-load-year-btn:hover {
+  background: linear-gradient(135deg, #e64402 0%, #ff5520 100%);
+  box-shadow: 0 4px 8px rgba(252, 76, 2, 0.3);
+  transform: translateY(-1px);
+}
+
+.strava-load-year-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.strava-loading-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  flex: 1;
+  max-width: 400px;
+}
+
+.progress-text {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #fc4c02 0%, #ff6b35 100%);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.strava-cancel-btn {
+  padding: 6px 12px;
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.strava-cancel-btn:hover {
+  background: #ffebee;
+  border-color: #f44336;
+  color: #f44336;
+}
+
+.progress-success {
+  color: #4caf50;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
+.progress-error {
+  color: #f44336;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 12px;
+}
+
 .search-info {
   display: flex;
   justify-content: space-between;
