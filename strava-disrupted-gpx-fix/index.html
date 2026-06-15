@@ -28,11 +28,14 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="israel-boundary.js"></script>
     <script>
         const dropZone = document.getElementById('drop-zone');
         const fileInput = document.getElementById('fileElem');
         const resultDiv = document.getElementById('result');
         const downloadLink = document.getElementById('download');
+        const israelBorderPolygon = window.ISRAEL_BORDER_POLYGON || [];
+        const israelBorderBounds = getFlatPolygonBounds(israelBorderPolygon);
         let mapBefore, mapAfter;
         let filename;
 
@@ -89,42 +92,34 @@
         function processGPX(gpxContent) {
             const parser = new DOMParser();
             const gpxDoc = parser.parseFromString(gpxContent, 'text/xml');
-            
-            const israelBounds = {
-                minLat: 29.5,
-                maxLat: 33.3,
-                minLon: 34.2,
-                maxLon: 35.9,
-                northLat: 33.1,
-                northLon: 35.5,
-                eastLat: 32.6,
-                eastLon: 35.5
-            };
+
+            if (gpxDoc.getElementsByTagName('parsererror').length) {
+                resultDiv.textContent = 'Could not parse this GPX file.';
+                downloadLink.style.display = 'none';
+                return;
+            }
+
+            if (!israelBorderPolygon.length) {
+                resultDiv.textContent = 'Israel boundary data is missing.';
+                downloadLink.style.display = 'none';
+                return;
+            }
 
             // Process and display original route
             const originalPoints = extractPoints(gpxDoc);
             displayRoute(mapBefore, originalPoints, 'blue');
 
-            // Process waypoints and track points
-            let removedPoints = 0;
-            let correctPoints = 0;
-            const processedPoints = originalPoints.filter(point => {
-                if (isInIsrael(point[0], point[1], israelBounds)) {
-                    correctPoints++;
-                    return true;
-                }
-                removedPoints++;
-                return false;
-            });
+            const result = removeOutOfIsraelPoints(gpxDoc);
+            const processedPoints = extractPoints(gpxDoc);
 
             // Display processed route
             displayRoute(mapAfter, processedPoints, 'red');
 
             // Generate result message
-            resultDiv.textContent = `Processed GPX file with ${correctPoints+removedPoints} points. Removed ${removedPoints} points.`;
+            resultDiv.textContent = `Processed GPX file with ${result.totalPoints} location points. Removed ${result.removedPoints} points.`;
 
             // Create download link for processed GPX
-            const processedGpxContent = generateGPX(processedPoints);
+            const processedGpxContent = new XMLSerializer().serializeToString(gpxDoc);
             const blob = new Blob([processedGpxContent], {type: 'application/gpx+xml'});
             const url = URL.createObjectURL(blob);
             downloadLink.href = url;
@@ -150,31 +145,103 @@
                     map.removeLayer(layer);
                 }
             });
+
+            if (!points.length) {
+                map.setView([31.4, 35], 7);
+                return;
+            }
             
             const polyline = L.polyline(points, {color: color}).addTo(map);
             map.fitBounds(polyline.getBounds());
         }
 
-        function isInIsrael(lat, lon, bounds) {
-            // special check for the area north to Galil and west to Kiryat Shmona
-            if (lat > bounds.northLat && lon < bounds.northLon) return false;
+        function removeOutOfIsraelPoints(gpxDoc) {
+            const locationNodes = [
+                ...gpxDoc.getElementsByTagName('trkpt'),
+                ...gpxDoc.getElementsByTagName('rtept'),
+                ...gpxDoc.getElementsByTagName('wpt')
+            ];
+            let removedPoints = 0;
 
-            // special check for the area east to Dead Sea and south to Kineret (Jordan)
-            if (lon > bounds.eastLon && lat < bounds.eastLat) return false;
+            locationNodes.forEach((point) => {
+                const lat = parseFloat(point.getAttribute('lat'));
+                const lon = parseFloat(point.getAttribute('lon'));
 
-            return lat >= bounds.minLat && lat <= bounds.maxLat && 
-                   lon >= bounds.minLon && lon <= bounds.maxLon;
+                if (!isInIsrael(lat, lon)) {
+                    point.parentNode.removeChild(point);
+                    removedPoints++;
+                }
+            });
+
+            return {
+                totalPoints: locationNodes.length,
+                removedPoints
+            };
         }
 
-        function generateGPX(points) {
-            let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n';
-            gpx += '<gpx version="1.1" creator="GPX Processor">\n';
-            gpx += '  <trk>\n    <trkseg>\n';
-            points.forEach(point => {
-                gpx += `      <trkpt lat="${point[0]}" lon="${point[1]}"></trkpt>\n`;
-            });
-            gpx += '    </trkseg>\n  </trk>\n</gpx>';
-            return gpx;
+        function isInIsrael(lat, lon) {
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+
+            if (lat < israelBorderBounds.minLat || lat > israelBorderBounds.maxLat ||
+                lon < israelBorderBounds.minLon || lon > israelBorderBounds.maxLon) {
+                return false;
+            }
+
+            return isPointInFlatPolygon(lat, lon, israelBorderPolygon);
+        }
+
+        function getFlatPolygonBounds(polygon) {
+            const bounds = {
+                minLat: Infinity,
+                maxLat: -Infinity,
+                minLon: Infinity,
+                maxLon: -Infinity
+            };
+
+            for (let i = 0; i < polygon.length; i += 2) {
+                const lat = polygon[i];
+                const lon = polygon[i + 1];
+                bounds.minLat = Math.min(bounds.minLat, lat);
+                bounds.maxLat = Math.max(bounds.maxLat, lat);
+                bounds.minLon = Math.min(bounds.minLon, lon);
+                bounds.maxLon = Math.max(bounds.maxLon, lon);
+            }
+
+            return bounds;
+        }
+
+        function isPointInFlatPolygon(lat, lon, polygon) {
+            let inside = false;
+
+            for (let i = 0, j = polygon.length - 2; i < polygon.length; j = i, i += 2) {
+                const latI = polygon[i];
+                const lonI = polygon[i + 1];
+                const latJ = polygon[j];
+                const lonJ = polygon[j + 1];
+
+                if (isPointOnSegment(lat, lon, latI, lonI, latJ, lonJ)) {
+                    return true;
+                }
+
+                const intersects = (lonI > lon) !== (lonJ > lon) &&
+                    lat < ((latJ - latI) * (lon - lonI)) / (lonJ - lonI) + latI;
+
+                if (intersects) inside = !inside;
+            }
+
+            return inside;
+        }
+
+        function isPointOnSegment(lat, lon, latA, lonA, latB, lonB) {
+            const tolerance = 1e-10;
+            const cross = (lon - lonA) * (latB - latA) - (lat - latA) * (lonB - lonA);
+
+            if (Math.abs(cross) > tolerance) return false;
+
+            return lat >= Math.min(latA, latB) - tolerance &&
+                   lat <= Math.max(latA, latB) + tolerance &&
+                   lon >= Math.min(lonA, lonB) - tolerance &&
+                   lon <= Math.max(lonA, lonB) + tolerance;
         }
     </script>
 </body>
